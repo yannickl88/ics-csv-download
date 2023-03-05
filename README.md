@@ -7,6 +7,7 @@ Minifier used: https://www.toptal.com/developers/javascript-minifier
 * Copy contents of `index.min.js` to clipboard
 * Create a new bookmark in your browser
 * Use as URL: `javascript:` and then paste the minified script.
+* Make sure to replace the `!!REPLACE ME!!` at the end of the snippet with your account number
 
 This should allow you to run the script.
 
