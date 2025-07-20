@@ -50,7 +50,7 @@
                     if (element.tagName === 'LIB-TRANSACTION-LIST-ITEM-DATE-DIVIDER') {
                         const matches = element.textContent.trim().match(/^([0-9]+) ([a-z]+)\.? ([0-9]+)$/);
                         let day = parseInt([matches[1]]);
-                        let month = months[matches[2]];
+                        let month = months[matches[2]] + 1;
                         let year = parseInt(matches[3]);
 
                         currentDate = [day, month, year];
