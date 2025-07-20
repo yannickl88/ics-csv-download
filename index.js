@@ -15,79 +15,79 @@
         dec: 11,
     }
 
-    for (let button of document.querySelectorAll(".statement-table > div div[role=button]")) {
-        promises.push(Promise.resolve(button).then((button) => {
+    for (let section of document.querySelectorAll("lib-period-accordion")) {
+        promises.push(Promise.resolve(section).then((section) => {
             return new Promise(resolve => {
-                const parent = button.parentElement.parentElement;
+                const container = section.querySelector('div.period-transactions')
 
-                if (button.classList.contains("statement-header--is-expanded")) {
-                    resolve(parent.querySelector("ics-transaction-list"));
+                if (container && container.classList.contains("expanded")) {
+                    resolve(container);
                     return;
                 }
 
-                button.click();
+                section.querySelector('header').click();
 
                 const interval = setInterval(() => {
-                    const list = parent.querySelector("ics-transaction-list");
-                    if (!list) {
+                    const firstFound = section.querySelector('div.period-transactions > lib-transaction-list-item');
+
+                    if (!firstFound) {
                         return;
                     }
 
                     clearInterval(interval);
-                    resolve(list);
+
+                    resolve(section.querySelector('div.period-transactions'));
                 }, 500);
-            }).then((list) => {
-                const dateHeader = list.parentElement.querySelector(".statement-header__period").textContent.trim();
-                const matches = dateHeader.match(/^[0-9]+ ([a-z]+)\.?\s+t\/m\s+[0-9]+ ([a-z]+)\.? ([0-9]+)$/);
-
-                const years = {}
-                let year = parseInt(matches[3]);
-                let endMonth = months[matches[2]];
-                let startMonth = months[matches[1]];
-
-                if (startMonth > endMonth) { // Means we crossed a year boundary
-                    for (let i = startMonth; i <= endMonth + 12; i++) {
-                        years[i % 12] = year - (Math.ceil((startMonth - endMonth) / 12) - Math.floor(i / 12));
-                    }
-                } else {
-                    for (let i = startMonth; i <= endMonth; i++) {
-                        years[i] = year;
-                    }
-                }
+            }).then((/*HTMLDivElement*/ container) => {
+                /** @var {NodeListOf<HTMLElement>} elements */
+                const elements = container.querySelectorAll('lib-transaction-list-item-date-divider,lib-transaction-list-item');
+                /** @var {array|undefined} currentDate */
+                let currentDate = undefined;
 
                 let rows = [];
 
-                list.querySelectorAll("ics-transaction").forEach((t) => {
-                    // make sure to open the transaction details
-                    t.querySelector(".b-transaction-header.b-transaction-header--has-details:not(.expanded)")?.click();
+                for (const element of elements) {
+                    if (element.tagName === 'LIB-TRANSACTION-LIST-ITEM-DATE-DIVIDER') {
+                        const matches = element.textContent.trim().match(/^([0-9]+) ([a-z]+)\.? ([0-9]+)$/);
+                        let day = parseInt([matches[1]]);
+                        let month = months[matches[2]];
+                        let year = parseInt(matches[3]);
 
-                    let memo = (t.querySelector(".b-transaction-details__merchantCategoryCodeDescription")?.textContent ?? "").trim();
-                    let payee = t.querySelector(".b-transaction-header__description-wrapper .b-transaction-header__description").textContent.trim();
-                    let rawDate = t.querySelector(".i-no-line-height").textContent.trim().split("\n")[0].trim().split(" ");
-                    let day = parseInt(rawDate[0]);
-                    let rawMonth = months[rawDate[1].substring(0, 3)];
-                    let month = rawMonth + 1;
-
-                    let amountBlock = t.querySelectorAll(".b-transaction-payment__amount div span.i-float-right");
-                    let amount = amountBlock[0].textContent.trim().substring(2).replace('.', '');
-                    if (amountBlock[1].textContent.trim().toLowerCase() === "af") {
-                        amount = "-" + amount;
+                        currentDate = [day, month, year];
                     }
+                    if (element.tagName === 'LIB-TRANSACTION-LIST-ITEM') {
+                        let amount = (element.querySelector(".transaction-amount")?.textContent ?? "").trim();
+                        amount = amount
+                          .replace('.', '')
+                          .replace(',', '.')
+                          .replace(/€ /, '')
+                          .replace(/^\+ */, '')
+                          .replace(' ', '');
 
-                    if (day < 10) day = '0' + day;
-                    if (month < 10) month = '0' + month;
+                        const transactionInfo = element.querySelector('.transaction-info');
 
-                    const formattedDate = day + '/' + month + '/' + (years[rawMonth] ?? year);
+                        const payee = (transactionInfo.querySelector(".transaction-headline1")?.textContent ?? "").trim();
+                        const memo = (transactionInfo.querySelector(".transaction-headline2")?.textContent ?? "").trim();
 
-                    rows.push([
-                        formattedDate,
-                        amount,
-                        payer,
-                        '',
-                        payee.replace(';', ''),
-                        memo.replace(';', '')
-                    ]);
-                });
+                        let day = currentDate[0];
+                        let month = currentDate[1];
+                        let year = currentDate[2];
+
+                        if (day < 10) day = '0' + day;
+                        if (month < 10) month = '0' + month;
+
+                        const formattedDate = day + '/' + month + '/' + year;
+
+                        rows.push([
+                            formattedDate,
+                            amount,
+                            payer,
+                            '',
+                            payee,
+                            memo
+                        ]);
+                    }
+                }
 
                 return rows;
             });
@@ -98,6 +98,10 @@
         let csv = "Datum;Bedrag;Eigen Rekening;Tegen Rekening;Omschrijving 1;Omschrijving 2\n";
 
         for (let row of rows) {
+            if (row[1] === '0.00') {
+                continue;
+            }
+
             csv += row.join(';') + '\n';
         }
 
